@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import { jsPDF } from 'jspdf';
 import './Prescription.css';
 
@@ -7,14 +9,16 @@ const PrescriptionForm = () => {
     const [formData, setFormData] = useState({
         patientName: '',
         phoneNumber: '',
-        medicines: [{ name: '', timeOfDay: '', dosage: '' }],
+        medicines: [
+            { type: '', name: '', dosage: '', days: '', timeOfDay: { morning: false, afternoon: false, night: false }, foodTiming: { morning: '', afternoon: '', night: '' } }
+        ],
         description: '',
         adviceToLab: '',
         paymentAmount: '',
         followUpDate: '',
+        isBooked: false,
     });
 
-    // Handle input change for patient details and description
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData({
@@ -24,16 +28,26 @@ const PrescriptionForm = () => {
     };
 
     const handleMedicineChange = (index, event) => {
-        const { name, value } = event.target;
+        const { name, value, type, checked } = event.target;
         const updatedMedicines = [...formData.medicines];
-        updatedMedicines[index][name] = value;
+
+        if (name === 'timeOfDay') {
+            const time = event.target.getAttribute('data-time');
+            updatedMedicines[index].timeOfDay[time] = checked;
+            if (!checked) updatedMedicines[index].foodTiming[time] = ''; // Clear food option if unchecked
+        } else if (name === 'foodTiming') {
+            const time = event.target.getAttribute('data-time');
+            updatedMedicines[index].foodTiming[time] = value;
+        } else {
+            updatedMedicines[index][name] = value;
+        }
         setFormData({ ...formData, medicines: updatedMedicines });
     };
 
     const addMedicine = () => {
         setFormData({
             ...formData,
-            medicines: [...formData.medicines, { name: '', timeOfDay: '', dosage: '' }],
+            medicines: [...formData.medicines, { name: '', dosage: '', timeOfDay: { morning: false, afternoon: false, night: false }, foodTiming: { morning: '', afternoon: '', night: '' } }],
         });
     };
 
@@ -44,28 +58,34 @@ const PrescriptionForm = () => {
 
     const handlePrint = () => {
         const doc = new jsPDF();
-
-        doc.setFont('Inter');
         doc.setFontSize(16);
         doc.text('Patient Prescription Details', 10, 10);
-
         doc.setFontSize(12);
         doc.text(`Patient Name: ${formData.patientName}`, 10, 20);
         doc.text(`Phone Number: ${formData.phoneNumber}`, 10, 30);
 
         doc.text('Medicines:', 10, 40);
         formData.medicines.forEach((medicine, index) => {
-            doc.text(`${index + 1}. ${medicine.name} - ${medicine.timeOfDay} - ${medicine.dosage}`, 10, 50 + (index * 10));
+            doc.text(`${index + 1}. ${medicine.name} - Dosage: ${medicine.dosage}`, 10, 50 + (index * 20));
+            ['morning', 'afternoon', 'night'].forEach((time) => {
+                if (medicine.timeOfDay[time]) {
+                    doc.text(
+                        `${time.charAt(0).toUpperCase() + time.slice(1)} - ${medicine.foodTiming[time]}`,
+                        10,
+                        60 + (index * 20)
+                    );
+                }
+            });
         });
 
-        doc.text(`Description: ${formData.description}`, 10, 70 + (formData.medicines.length * 10));
+        doc.text(`Description: ${formData.description}`, 10, 70 + (formData.medicines.length * 20));
         if (formData.followUpDate) {
-            doc.text(`Follow-Up Date: ${formData.followUpDate}`, 10, 80 + (formData.medicines.length * 10));
+            doc.text(`Follow-Up Date: ${formData.followUpDate}`, 10, 80 + (formData.medicines.length * 20));
         }
         if (formData.adviceToLab) {
-            doc.text(`Advice to Lab: ${formData.adviceToLab}`, 10, 90 + (formData.medicines.length * 10));
+            doc.text(`Advice to Lab: ${formData.adviceToLab}`, 10, 90 + (formData.medicines.length * 20));
         }
-        doc.text(`Payment Amount: ₹${formData.paymentAmount}`, 10, 100 + (formData.medicines.length * 10));
+        doc.text(`Payment Amount: ₹${formData.paymentAmount}`, 10, 100 + (formData.medicines.length * 20));
 
         doc.save('Patient_Prescription.pdf');
     };
@@ -132,40 +152,92 @@ const PrescriptionForm = () => {
                     <h4>Medicine Details</h4>
                     <label className="form-label">Medicines, Timings, and Dosage</label>
                     {formData.medicines.map((medicine, index) => (
-                        <div key={index} className="mb-3 d-flex">
-                            <input
-                                type="text"
-                                name="name"
-                                className="form-control me-2"
-                                placeholder="Medicine name"
-                                value={medicine.name}
-                                onChange={(e) => handleMedicineChange(index, e)}
-                                required
-                                style={{ borderColor: '#03c0c1' }}
-                            />
-                            <select
-                                name="timeOfDay"
-                                className="form-control me-2"
-                                value={medicine.timeOfDay}
-                                onChange={(e) => handleMedicineChange(index, e)}
-                                required
-                                style={{ borderColor: '#03c0c1' }}
-                            >
-                                <option value="">Select time</option>
-                                <option value="Morning">Morning</option>
-                                <option value="Afternoon">Afternoon</option>
-                                <option value="Night">Night</option>
-                            </select>
-                            <input
-                                type="text"
-                                name="dosage"
-                                className="form-control"
-                                placeholder="Dosage (e.g., 500mg or None)"
-                                value={medicine.dosage}
-                                onChange={(e) => handleMedicineChange(index, e)}
-                                required
-                                style={{ borderColor: '#03c0c1' }}
-                            />
+                        <div key={index} className="mb-3 p-2 rounded" style={{ border: '1px solid #03c0c1', backgroundColor: '#e9f8f9' }}>
+                            <div className="row align-items-center">
+                                <div className="col-md-2">
+                                    <select
+                                        name="type"
+                                        className="form-select"
+                                        value={medicine.type}
+                                        onChange={(e) => handleMedicineChange(index, e)}
+                                        required
+                                        style={{ borderColor: '#03c0c1' }}
+                                    >
+                                        <option value="tablet">Tablet</option>
+                                        <option value="capsule">Capsule</option>
+                                        <option value="syrup">Syrup</option>
+                                    </select>
+                                </div>
+                                <div className="col-md-4">
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        className="form-control"
+                                        placeholder="Medicine name"
+                                        value={medicine.name}
+                                        onChange={(e) => handleMedicineChange(index, e)}
+                                        required
+                                        style={{ borderColor: '#03c0c1' }}
+                                    />
+                                </div>
+                                <div className="col-md-3">
+                                    <input
+                                        type="text"
+                                        name="dosage"
+                                        className="form-control"
+                                        placeholder="Dosage (e.g., 500mg)"
+                                        value={medicine.dosage}
+                                        onChange={(e) => handleMedicineChange(index, e)}
+                                        required
+                                        style={{ borderColor: '#03c0c1' }}
+                                    />
+                                </div>
+                                <div className="col-md-3">
+                                    <input
+                                        type="number"
+                                        name="days"
+                                        className="form-control"
+                                        placeholder="Days"
+                                        value={medicine.days}
+                                        onChange={(e) => handleMedicineChange(index, e)}
+                                        required
+                                        style={{ borderColor: '#03c0c1' }}
+                                    />
+                                </div>
+                            </div>
+                            <div className="row mt-2">
+                                {['morning', 'afternoon', 'night'].map((time) => (
+                                    <div className="col-md-4" key={time}>
+                                        <div className="form-check">
+                                            <input
+                                                type="checkbox"
+                                                className="form-check-input"
+                                                id={`${time}-${index}`}
+                                                name="timeOfDay"
+                                                data-time={time}
+                                                checked={medicine.timeOfDay[time]}
+                                                onChange={(e) => handleMedicineChange(index, e)}
+                                            />
+                                            <label className="form-check-label" htmlFor={`${time}-${index}`}>
+                                                {time.charAt(0).toUpperCase() + time.slice(1)}
+                                            </label>
+                                            {medicine.timeOfDay[time] && (
+                                                <select
+                                                    name="foodTiming"
+                                                    data-time={time}
+                                                    className="form-select mt-1"
+                                                    value={medicine.foodTiming[time]}
+                                                    onChange={(e) => handleMedicineChange(index, e)}
+                                                    required
+                                                >
+                                                    <option value="before">Before Food</option>
+                                                    <option value="after">After Food</option>
+                                                </select>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     ))}
                     <button type="button" className="btn btn-secondary" onClick={addMedicine}>

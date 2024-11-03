@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from './firebase'; // Adjust the path as needed
 import "./Patient.css";
 
 const patients = [
