@@ -12,43 +12,80 @@ body {
     text-align: center;
     margin-bottom: 20px;
 }
+/*.card-container {*/
+/*    display: flex;*/
+/*    justify-content: center;*/
+/*    gap: 50px;*/
+/*    flex-wrap: wrap;*/
+/*}*/
+
 .card-container {
     display: flex;
-    justify-content: center;
-    gap: 50px;
     flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    transition: opacity 0.1s ease;
 }
+
 /* Basic Card Styling */
+/*.card {*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    justify-content: space-between;*/
+/*    width: 250px;*/
+/*    height: 250px;*/
+/*    background-color: #ffffff;*/
+/*    border-radius: 12px;*/
+/*    padding: 10px;*/
+/*    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);*/
+/*    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease;*/
+/*    overflow: hidden;*/
+/*    cursor: pointer;*/
+/*}*/
+
 .card {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    /* Initial styles for the small card */
     width: 250px;
-    height: 250px;
+    height: 200px;
     background-color: #ffffff;
     border-radius: 12px;
     padding: 10px;
-    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    cursor: pointer;
+    transition: all 0.3s ease-in-out; /* Smooth transition for all properties */
+    transform: scale(1);
+    opacity: 1;
 }
 /* Hover Zoom Effect (applies only when card is not expanded) */
 .card:not(.expanded):hover {
     transform: scale(1.05); /* Slight zoom effect */
-    box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.25); /* Enhanced shadow */
+    box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.15); /* Enhanced shadow */
 }
 /* Expanded State Styling */
+/*.card.expanded {*/
+/*    height: auto;*/
+/*    width: 60%;*/
+/*    position: fixed;*/
+/*    top: 10%;*/
+/*    left: 15%;*/
+/*    z-index: 10;*/
+/*    transform: none; !* No zoom for expanded state *!*/
+/*    transition: none;*/
+/*}*/
 .card.expanded {
-    height: auto;
+    /* Styles for the expanded card */
     width: 80%;
+    height: 80vh;
     position: fixed;
     top: 10%;
     left: 10%;
     z-index: 10;
-    transform: none; /* No zoom for expanded state */
-    transition: none;
+    transform: scale(1.05); /* Slightly larger scale for effect */
+    opacity: 1;
+    transition: all 0.2s ease-in-out;
 }
+
+
 .card.hidden {
     display: none;
 }
@@ -145,3 +182,37 @@ button:hover {
 }
 
 
+.card.expanded .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    background-color: #f9f9f9;
+    margin-bottom: 10px;
+}
+
+.patient-name {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: gray;
+    border: none;
+    background: transparent;
+}
+
+.appointment-time {
+    font-size: 0.9em;
+    padding: 4px 8px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+}
+
+.button-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.button {
+    padding: 8px 12px;
+    cursor: pointer;
+}
