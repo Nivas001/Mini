@@ -74,7 +74,7 @@ const ViewFuturePatients = () => {
                     ))
                 ) : (
                     <tr>
-                        <td colSpan="5">No future appointments found</td>
+                        <td colSpan="5" style={{textAlign: "center"}}>No future appointments found</td>
                     </tr>
                 )}
                 </tbody>

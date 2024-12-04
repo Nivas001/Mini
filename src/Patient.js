@@ -29,6 +29,10 @@ const PatientCard = ({ patient, isExpanded, onClick, onEdit }) => {
         }
     };
 
+    const handleAddPrescription = (appointment_id, patient_id) => {
+        window.location.href = `/prescription/${patient_id}/${appointment_id}`; // Redirects to Prescription page
+    };
+
     const handleBack = () => {
         if (isEditing) {
             handleSave(); // Save automatically when going back
@@ -168,6 +172,9 @@ const PatientCard = ({ patient, isExpanded, onClick, onEdit }) => {
                                 Save
                             </button>
                         )}
+                        <button className="button" onClick={() => handleAddPrescription(patient.appointment_id, patient.patient_id)}>
+                            Add Prescription
+                        </button>
                     </>
                 )}
             </div>
