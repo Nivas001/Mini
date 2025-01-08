@@ -13,6 +13,8 @@ const PrescriptionForm = () => {
     const { patientId, appointmentId } = useParams();
     const [patientName, setPatientName] = useState("");
     const [chiefComplaint, setChiefComplaint] = useState("");
+    const [gender, setGender] = useState("");
+    const [dob, setDob] = useState("");
 
     useEffect(() => {
         const fetchPatientName = async () => {
@@ -45,9 +47,42 @@ const PrescriptionForm = () => {
             }
         };
 
+        const fetchGender = async () => {
+            try {
+                const appointmentDocRef = doc(db, "Patient Appointments", appointmentId);
+                const appointmentDoc = await getDoc(appointmentDocRef);
+
+                if (appointmentDoc.exists()) {
+                    setGender(appointmentDoc.data().gender || "");
+                } else {
+                    console.log("No such document in Patient Appointments collection!");
+                }
+            } catch (error) {
+                console.error("Error fetching chief complaint:", error);
+            }
+        };
+
+        const fetchDob = async () => {
+            try {
+                const patientDocRef = doc(db, "Patients", patientId);
+                const patientDoc = await getDoc(patientDocRef);
+
+                if (patientDoc.exists()) {
+                    setDob(patientDoc.data().patient_dob || "");
+                    console.log("Patient DOB: ", patientDoc.data().patient_dob);
+                } else {
+                    console.log("No such document in Patients collection!");
+                }
+            } catch (error) {
+                console.error("Error fetching patient dob:", error);
+            }
+        };
+
         if (patientId && appointmentId) {
             fetchPatientName();
             fetchChiefComplaint();
+            fetchGender();
+            fetchDob();
         }
     }, [patientId, appointmentId]);
 
@@ -55,9 +90,12 @@ const PrescriptionForm = () => {
 
     //used to store values in these variables
     const [formData, setFormData] = useState({
+        patientSalutation: '',
         patientName: '',
         phoneNumber: '',
         chiefComplaint: '',
+        gender:'',
+        age: '',
         medicines: [
             { type: '', name: '', dosage: '', days: '', timeOfDay: { morning: false, afternoon: false, evening: false,night: false }, foodTiming: '' }
         ],
@@ -72,6 +110,36 @@ const PrescriptionForm = () => {
         treatmentPlan: '',
         consent: ''
     });
+
+    function calculateAge(dob) {
+        // Split the dob string into parts
+        const parts = dob.split('_');
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-based
+        const day = parseInt(parts[2], 10);
+
+        // Create a Date object for the dob
+        const dobDate = new Date(year, month, day);
+
+        // Get today's date
+        const today = new Date();
+
+        // Calculate age
+        let age = today.getFullYear() - dobDate.getFullYear();
+        const monthDiff = today.getMonth() - dobDate.getMonth();
+        const dayDiff = today.getDate() - dobDate.getDate();
+
+        // Adjust age if the birthday hasn't occurred yet this year
+        if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+            age--;
+        }
+
+        return age;
+    }
+
+    const age = calculateAge(dob);
+    console.log("Age:", age); // Outputs the calculated age
+
 
     const [errors, setErrors] = useState({}); // State for tracking validation errors
 
@@ -126,11 +194,11 @@ const PrescriptionForm = () => {
         // Update dosage based on selected medicine name
         if (name === 'name') {
             const medicineDefaults = {
-                'Augmentin': { dosage: '625 mg' },
-                'Taxim O': { dosage: '200 mg' },
-                'Pan': { dosage: '40 mg', foodTiming: 'before' },
-                'Dolo': { dosage: '650 mg' },
-                'P': { dosage: '125 mg' }
+                'Augmentin': { dosage: '625' },
+                'Taxim O': { dosage: '200' },
+                'Pan': { dosage: '40', foodTiming: 'before' },
+                'Dolo': { dosage: '650' },
+                'P': { dosage: '125' }
             };
 
             if (medicineDefaults[value]) {
@@ -165,11 +233,19 @@ const PrescriptionForm = () => {
         });
     };
 
+    const removeMedicine = (indexToRemove) => {
+        setFormData({
+            ...formData,
+            medicines: formData.medicines.filter((_, index) => index !== indexToRemove),
+        });
+    };
+
+
     const getMedicineOptions = (type) => {
         if (type === 'tablet') {
-            return ['Pan', 'Zerodol SP', 'Divon Plus', 'Tolpa D', 'Chymoral Forte', 'Ketorol DT', 'Amoxicillin', 'Taxim O', 'Augmentin', 'Metrogyl', 'Imol', 'Dolo', 'P'];
+            return ['Select','Pan', 'Zerodol SP', 'Divon Plus', 'Tolpa D', 'Chymoral Forte', 'Ketorol DT', 'Amoxicillin', 'Taxim O', 'Augmentin', 'Metrogyl', 'Imol', 'Dolo', 'P'];
         } else if (type === 'syrup') {
-            return ['Calvum Bid Dry Syrup', 'Clavum Dry Syrup', 'Ibugesic Plus' ,'Ibugesic Kid'];
+            return ['Select','Calvum Bid Dry Syrup', 'Clavum Dry Syrup', 'Ibugesic Plus' ,'Ibugesic Kid'];
         }
         return [];
     };
@@ -233,6 +309,8 @@ const PrescriptionForm = () => {
             // Add data to Firestore
             const prescriptionRef = collection(db, 'Prescription');  // Reference to the Prescription collection
             await addDoc(prescriptionRef, {
+                patientSalutation: formData.patientSalutation,
+                patientAge: age,
                 patientName: patientName,
                 appointmentId: appointmentId,
                 patientId: patientId,
@@ -259,7 +337,9 @@ const PrescriptionForm = () => {
 
             // Optionally clear the form or provide feedback
             setFormData({
+                patientSalutation: '',
                 patientName: '',
+                patientAge: '',
                 phoneNumber: '',
                 chiefComplaint: '',
                 medicines: [
@@ -490,140 +570,164 @@ const PrescriptionForm = () => {
     function handlePrint(patientData) {
         const prescriptionWindow = window.open('', '_blank');
 
-        // Assuming formData.medicines is an array of objects like [{ name: 'Medicine1', dosage: '100mg', days: 5, timing: 'Before food' }, ...]
-        const medicinesHtml = formData.medicines?.map((medicine, index) => `
-        <span style="font-weight: bold">Medicine ${index + 1}: ${medicine.name || 'Not Provided'}</span></br>
-        <span style="font-weight: bold">Dosage: <span style="font-weight: normal ">${medicine.dosage || 'Not Provided'}</span> </span>
-        <span style="font-weight: bold">No. of Days:<span style="font-weight: normal"> ${medicine.days || 'Not Provided'}</span></span> <br>
-        <span style="font-weight: bold">When to take: <span style="font-weight: normal">${medicine.foodTiming || 'Not Provided'}</span></span>
-        <br><br>
-    `).join('') || '<p>No medicines provided.</p>';
+
+        const medicinesHtml = formData.medicines?.map((medicine, index) => {
+            // Determine the unit based on medicine type
+            const unit = medicine.type?.toLowerCase() === 'syrup' ? 'ml' : 'mg';
+
+            return `
+        <span style="font-weight: bold">
+            Medicine ${index + 1}:
+            <span style="font-weight: normal">
+                ${medicine.name || 'Not Provided'} 
+                (${medicine.dosage || 'Not Provided'} ${unit}) - ${medicine.days || 'Not Provided'} days, 
+                ${medicine.foodTiming === 'before' ? 'Before Food' : medicine.foodTiming === 'after' ? 'After Food' : 'Not Provided'}
+            </span>
+        </span>
+    `;
+        }).join('<br>') || '<p>No medicines provided.</p>';
+
+
 
         //console.log("Patient Data: ", {patientName});
         console.log("Patient Name: ", patientName); // Log the exact name
 
+        let patientSalutation = formData.patientSalutation;
         const template = `
     <!DOCTYPE html>
-    <html lang="en" xmlns="http://www.w3.org/1999/html">
-    <head>
-        <style>
-            .print_entire_body{
+    <html lang="en">
+<head>
+    <style>
+        body {
             font-family: 'Inter', sans-serif;
-        }
-        .header-container{
-            display: flex;
-            justify-content: space-between;
-        }
-        .header-container h1{
-            margin-top: 4%;
-            font-size: 28px;
-            color:  #03c0c1;;
+            margin: 0;
+            padding: 0;
+            color: #333;
         }
 
-        .header-container .left{
-            margin-left: 3%;
-            margin-top: 2%;
-            width: 60%;
+        .print_entire_body {
+            padding: 20px;
         }
-        .header-container img{
-            margin-top: 35px;
-            margin-right: 2%;
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-container h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #03c0c1;
+            line-height: 1.4;
+        }
+
+        .header-container img {
             height: 75px;
             width: 75px;
             border-radius: 10px;
         }
-        .header-container .right{
-            margin-top: 12px;
+
+        .header-container .right p {
+            margin: 4px 0;
+            font-size: 14px;
         }
 
-        .header-container .right p{
-            font-size: 14px;
-            width: 100%;
-            margin: 8px;
-            margin-right: 20px;
+        hr {
+            border: none;
+            border-top: 2px solid #03c0c1;
+            margin: 20px 0;
         }
-        .patient-details{
+
+        .patient-details {
             display: flex;
             justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
         }
 
-        .patient-details1, .patient-details, .patient-details3{
-            margin: 0 7% 0% 3.0%;
+        .patient-details h3, .patient-details h4 {
+            margin: 0;
         }
 
-        .patient-details2{
-            margin-left: 3%;
+        .patient-details span {
+            font-weight: normal;
         }
 
-        
+        .section {
+            margin: 20px 0;
+        }
+
+        .section h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .section span {
+            display: block;
+            margin-bottom: 10px;
+        }
+
         .footer {
-                display: flex;
-                justify-content: space-between;
-                margin-top: 50px;
-            }
-            .footer div {
-                text-align: center;
-                width: 45%;
-            }
-            .footer div span {
-                display: block;
-                margin-top: 20px;
-                border-top: 1px solid #000;
-            }
-        </style>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
-    </head>
-    <body class="print_entire_body">
+            display: flex;
+            justify-content: space-between;
+            margin-top: 50px;
+        }
+
+        .footer div {
+            text-align: center;
+            width: 45%;
+        }
+
+        .footer div span {
+            display: block;
+            margin-top: 20px;
+            border-top: 1px solid #000;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="print_entire_body">
     <div class="header-container">
-        <div class="left" style="display: flex">
-            <img src="data:image/jpeg;base64,<base64_data>" alt="Dental clinic logo">
-            <h1>Dr. Nithya's <br>Dental and Smile Design Clinic</h1>
-
+        <div class="left">
+            <h1>Dr. Nithya's<br>Dental and Smile<br>Design Clinic</h1>
         </div>
-
-        
-
         <div class="right">
-            <p style="font-weight: bold; font-size: 16px">Dr. Nithya Selvaraj, MDS</p>
+            <p><strong>Dr. Nithya Selvaraj, MDS</strong></p>
             <p>Prosthodontist & Implantologist</p>
             <p>Reg. No: 49867-A</p>
             <p>+91 974-121-7007</p>
             <p>dr.nit.sel@gmail.com</p>
         </div>
     </div>
-
-
-    <hr style="color: #03c0c1">
+    <hr>
 
     <div class="patient-details">
-        <div class="patient_name">
-            <h3>Name : ${patientName || 'Not Provided'}</h3>
+        <div>
+            <h3>Name:&nbsp&nbsp${patientSalutation || 'Mr'} . ${patientName || 'Not Provided'}</h3>
         </div>
-<!--        <div class="patient_age">-->
-<!--            <h3>Gender/ Age : </h3>-->
-<!--        </div>-->
+        <div>
+            <h4>Gender: <span>${gender || 'Not Mentioned'}</span> | Age: <span>${age || 'Not Mentioned'}</span></h4>
+            
+        </div>
     </div>
 
-    <div class="patient-details1" style="display: flex">
-        <h4>Cheif Complaint : ${chiefComplaint || ''}</h4>
+    <div class="section">
+        <h3 style="text-decoration: underline">Medicinal Diagnosis</h3>
+        <span><strong>On Examination:</strong> ${formData.onExamination || 'Not Provided'}</span>
+        <span><strong>Proposed Treatment Plan:</strong> ${formData.treatmentPlan || ''}</span>
+        <br>
+        <h3 style="text-decoration: underline">Medicine:</h3>
+        ${medicinesHtml}
     </div>
 
-    <div class="patient-details2">
-        <h3>Medicinal Diagnosis</h3>
-        <span style="font-weight: bold">On Examination: <span style="font-weight: normal">${formData.onExamination || 'Not Provided'}</span></span> 
-        <h2>Medicine:</h2>
-                ${medicinesHtml}
-        </div>
-
-    <div class="patient-details3"><br>
-        <h2>Treatment Details</h2>
-        <span style="font-weight: bold"> Radiography Report :<span style="font-weight: normal">${formData.radiographReport || ''}</span></span><br>
-        <span style="font-weight: bold">Proposed Treatment Plan : <span style="font-weight: normal">${formData.treatmentPlan || ''}</span> </span><br>
-        <span style="font-weight: bold">Consent from Patient : <span style="font-weight: normal">${formData.consent || ''}</span> </span><br>
-        <span style="font-weight: bold">Payment Amount : <span style="font-weight: normal">${formData.paymentAmount || 'Not Provided'}</span> </span><br>
-        <span style="font-weight: bold;">Follow up date : <span style="font-weight: normal">${formData.followUpDate || 'Not Provided'}</span> </span><br>
+    <div class="section">
+        <h3 style="text-decoration: underline">Treatment Details</h3>
+        <span><strong>Radiography Report:</strong> ${formData.radiographReport || 'Does not needed'}</span>
+        <span><strong>Consent from Patient:</strong> ${formData.consent || ''}</span>
+        <span><strong>Payment Amount:</strong> ${formData.paymentAmount || 'Not Provided'}</span>
+        <span><strong>Follow-up Date:</strong> ${formData.followUpDate || 'Not Provided'}</span>
     </div>
 
     <div class="footer">
@@ -636,9 +740,12 @@ const PrescriptionForm = () => {
             <span></span>
         </div>
     </div>
+</body>
+</html>
 
-    </body>
-    </html>
+
+
+
     `;
         prescriptionWindow.document.write(template);
         prescriptionWindow.document.close();
@@ -668,7 +775,25 @@ const PrescriptionForm = () => {
                 <div className="mb-4 p-3" style={{backgroundColor: '#f8f9fa'}}>
                     <h4>Personal Details</h4>
                     <div className="row mb-3">
-                        <div className="col-md-6">
+
+                        {/*For Salutation*/}
+                        <div className="col-md-1">
+                            <label htmlFor="patientName" className="form-label">Salutation</label>
+                            <select
+                                name="type"
+                                className="form-select"
+                                value={formData.patientSalutation}
+                                onChange={(e) => setFormData({ ...formData, patientSalutation: e.target.value })}
+                                required
+                                style={{borderColor: '#03c0c1'}}
+                            >
+                                <option value="Mr">Mr</option>
+                                <option value="Mrs">Mrs</option>
+                                <option value="Ms">Ms</option>
+                            </select>
+                        </div>
+
+                        <div className="col-md-5">
                             <label htmlFor="patientName" className="form-label">Patient Name</label>
                             <input
                                 type="text"
@@ -683,7 +808,7 @@ const PrescriptionForm = () => {
                                 style={{borderColor: '#03c0c1'}}
                             />
                         </div>
-                        <div className="col-md-6">
+                        <div className="col-md-5">
                             <label htmlFor="cheifComplaint" className="form-label">Chief Complaint</label>
                             <input
                                 type="tel"
@@ -735,7 +860,7 @@ const PrescriptionForm = () => {
                                 />
                                 <button
                                     type="button"
-                                    className="btn btn-warning ms-2"
+                                    className="btn btn-info ms-2"
                                     onClick={() => handleRemoveProblem(index)}
                                 >
                                     -
@@ -753,161 +878,6 @@ const PrescriptionForm = () => {
                             style={{backgroundColor: '#03c0c1'}}
                         >
                             Add Problem
-                        </button>
-                    </div>
-                </div>
-
-
-                {/* Medicine Details */}
-                <div className="mb-4 p-3" style={{backgroundColor: '#f8f9fa'}}>
-                    <h4>Medicine Details</h4>
-                    {formData.medicines.map((medicine, index) => (
-                        <div key={index} className="mb-3 p-2 rounded d-flex align-items-center"
-                             style={{border: '1px solid #03c0c1', backgroundColor: '#e9f8f9'}}>
-
-                            {/* Type Selection */}
-                            <div className="me-2">
-                                <label className="form-label mb-1">Type</label>
-                                <select
-                                    name="type"
-                                    className="form-select"
-                                    value={medicine.type || "tablet"}
-                                    onChange={(e) => handleMedicineChange(index, e)}
-                                    required
-                                    style={{borderColor: '#03c0c1', width: '100px'}}
-                                >
-                                    <option value="tablet">Tablet</option>
-                                    <option value="syrup">Syrup</option>
-                                </select>
-                            </div>
-
-                            {/* Name Selection */}
-                            <div className="me-3">
-                                <label className="form-label mb-1">Name</label>
-                                <select
-                                    name="name"
-                                    className="form-select"
-                                    value={medicine.name}
-                                    onChange={(e) => handleMedicineChange(index, e)}
-                                    required
-                                    style={{borderColor: '#03c0c1', width: '150px'}}
-                                >
-                                    {getMedicineOptions(medicine.type || "tablet").map((option) => (
-                                        <option key={option} value={option}>
-                                            {option}
-                                        </option>
-                                    ))}
-                                    <option value="Other">Other</option>
-                                </select>
-                                {errors[`medicine-name-${index}`] && <span className="error">{errors[`medicine-name-${index}`]}</span>}
-
-                            </div>
-
-                            {/* Custom Name Input */}
-                            {medicine.name === 'Other' && (
-                                <div className="me-2">
-                                    <label className="form-label mb-1">Medicine Name</label>
-                                    <input
-                                        type="text"
-                                        name="customName"
-                                        className="form-control"
-                                        placeholder="Enter Medicine name"
-                                        value={medicine.customName}
-                                        //value={medicine.name}
-                                        onChange={(e) => handleMedicineChange(index, e)}
-                                        required
-                                        style={{borderColor: '#03c0c1', width: '185px'}}
-                                    />
-                                </div>
-                            )}
-
-                            {/* Dosage Input */}
-                            <div className="me-2">
-                                <label className="form-label mb-1">Dosage</label>
-                                <input
-                                    type="text"
-                                    name="dosage"
-                                    className="form-control"
-                                    placeholder="500mg"
-                                    value={medicine.dosage}
-                                    onChange={(e) => handleMedicineChange(index, e)}
-                                    required
-                                    style={{borderColor: '#03c0c1', width: '100px'}}
-                                />
-                            </div>
-
-                            {/* Days Input */}
-                            <div className="me-2">
-                                <label className="form-label mb-1">Days</label>
-                                <input
-                                    type="number"
-                                    name="days"
-                                    className="form-control"
-                                    placeholder="Count"
-                                    value={medicine.days}
-                                    onChange={(e) => handleMedicineChange(index, e)}
-                                    required
-                                    style={{borderColor: '#03c0c1', width: '80px'}}
-                                />
-                            </div>
-
-                            {/* Time of Day Selection (Checkboxes) */}
-                            <div className="me-2">
-                                <label className="form-label mb-1">Time</label>
-                                <div className="d-flex flex-wrap">
-                                    {["morning", "afternoon", "evening", "night"].map((time) => (
-                                        <label key={time} className="form-check-label me-2" style={{cursor: 'pointer'}}>
-                                            <input
-                                                type="checkbox"
-                                                className="form-check-input me-1"
-                                                name="time"
-                                                value={time}
-                                                checked={medicine.time?.includes(time)}
-                                                onChange={(e) => handleTimeCheckboxChange(index, time, e)}
-                                            />
-                                            {time.charAt(0).toUpperCase() + time.slice(1)}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-
-                            {/* Food Selection */}
-                            <div className="me-2">
-                                <label className="form-label mb-1">Food</label>
-                                <select
-                                    name="food"
-                                    className="form-select"
-                                    value={medicine.foodTiming}
-                                    onChange={(e) => handleFoodTimingChange(index, e)}
-                                    style={{borderColor: '#03c0c1', width: '150px'}}
-                                >
-                                    <option value="after">After Food</option>
-                                    <option value="before">Before Food</option>
-                                    {/*<option value="both">Before and After Food</option>*/}
-                                </select>
-                            </div>
-                        </div>
-                    ))}
-                    {/* Add Medicine Button */}
-                    <div className="text-end mt-2">
-                        <button
-                            type="button"
-                            className="btn btn-outline-secondary rounded-circle"
-                            onClick={addMedicine}
-                            style={{
-                                backgroundColor: '#e0e0e0',
-                                color: '#03c0c1',
-                                border: 'none',
-                                width: '40px',
-                                height: '40px',
-                                fontSize: '20px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            +
                         </button>
                     </div>
                 </div>
@@ -988,9 +958,211 @@ const PrescriptionForm = () => {
                 </div>
 
 
+                {/* Medicine Details */}
+                <div className="mb-4 p-3" style={{backgroundColor: '#f8f9fa'}}>
+                    <h4>Medicine Details</h4>
+                    {formData.medicines.map((medicine, index) => (
+                        <div key={index} className="mb-3 p-2 rounded d-flex align-items-center"
+                             style={{border: '1px solid #03c0c1', backgroundColor: '#e9f8f9'}}>
+
+                            {/* Type Selection */}
+                            <div className="me-2">
+                                <label className="form-label mb-1">Type</label>
+                                <select
+                                    name="type"
+                                    className="form-select"
+                                    // value={medicine.type || "tablet"}
+                                    value={medicine.type}
+                                    onChange={(e) => handleMedicineChange(index, e)}
+                                    required
+                                    style={{borderColor: '#03c0c1', width: '100px'}}
+                                >
+                                    <option value="undef">Select</option>
+                                    <option value="tablet">Tablet</option>
+                                    <option value="syrup">Syrup</option>
+                                </select>
+                            </div>
+
+                            {/* Name Selection */}
+                            <div className="me-3">
+                                <label className="form-label mb-1">Name</label>
+                                <select
+                                    name="name"
+                                    className="form-select"
+                                    value={medicine.name}
+                                    onChange={(e) => handleMedicineChange(index, e)}
+                                    required
+                                    style={{borderColor: '#03c0c1', width: '150px'}}
+                                >
+                                    {getMedicineOptions(medicine.type || "tablet").map((option) => (
+                                        <option key={option} value={option}>
+                                            {option}
+                                        </option>
+                                    ))}
+                                    <option value="Other">Other</option>
+                                </select>
+                                {errors[`medicine-name-${index}`] &&
+                                    <span className="error">{errors[`medicine-name-${index}`]}</span>}
+
+                            </div>
+
+                            {/* Custom Name Input */}
+                            {medicine.name === 'Other' && (
+                                <div className="me-2">
+                                    <label className="form-label mb-1">Medicine Name</label>
+                                    <input
+                                        type="text"
+                                        name="customName"
+                                        className="form-control"
+                                        placeholder="Enter Medicine name"
+                                        value={medicine.customName}
+                                        //value={medicine.name}
+                                        onChange={(e) => handleMedicineChange(index, e)}
+                                        required
+                                        style={{borderColor: '#03c0c1', width: '185px'}}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Dosage Input */}
+                            <div className="me-2">
+                                <label className="form-label mb-1">Dosage</label>
+                                <input
+                                    type="text"
+                                    name="dosage"
+                                    className="form-control"
+                                    placeholder=""
+                                    value={medicine.dosage}
+                                    onChange={(e) => handleMedicineChange(index, e)}
+                                    required
+                                    style={{borderColor: '#03c0c1', width: '100px'}}
+                                />
+                            </div>
+
+                            {/* Days Input */}
+                            <div className="me-2">
+                                <label className="form-label mb-1">Days</label>
+                                <input
+                                    type="number"
+                                    name="days"
+                                    className="form-control"
+                                    placeholder="Count"
+                                    value={medicine.days}
+                                    onChange={(e) => handleMedicineChange(index, e)}
+                                    required
+                                    style={{borderColor: '#03c0c1', width: '80px'}}
+                                />
+                            </div>
+
+
+                            {/*Time selection */}
+                            <div className="me-2">
+                                <label className="form-label mb-1">Time</label>
+                                <div
+                                    className="d-flex flex-wrap"
+                                    style={{
+                                        display: "flex",
+                                        flexWrap: "wrap",
+                                        // gap: "10px", // Adds space between rows and columns
+                                        width: "200px", // Ensures proper wrapping
+                                    }}
+                                >
+                                    {["morning", "afternoon", "night", "SOS"].map((time, idx) => (
+                                        <label
+                                            key={time}
+                                            className="form-check-label"
+                                            style={{
+                                                cursor: "pointer",
+                                                width: "50%", // Places 2 items per row
+                                                textAlign: "left", // Ensures text alignment
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                className="form-check-input me-2"
+                                                name="time"
+                                                value={time}
+                                                checked={medicine.time?.includes(time)}
+                                                onChange={(e) => handleTimeCheckboxChange(index, time, e)}
+                                            />
+                                            {time.charAt(0).toUpperCase() + time.slice(1)} {/* Capitalizes the first letter */}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+
+                            {/* Food Selection */}
+                            <div className="me-2">
+                                <label className="form-label mb-1">Food</label>
+                                <select
+                                    name="food"
+                                    className="form-select"
+                                    value={medicine.foodTiming}
+                                    onChange={(e) => handleFoodTimingChange(index, e)}
+                                    style={{borderColor: '#03c0c1', width: '150px'}}
+                                >
+                                    <option value="after">After Food</option>
+                                    <option value="before">Before Food</option>
+                                    {/*<option value="both">Before and After Food</option>*/}
+                                </select>
+                            </div>
+
+
+                            <button
+                                type="button"
+                                className="btn btn-outline-danger rounded-circle"
+                                onClick={() => removeMedicine(index)}
+                                style={{
+                                    backgroundColor: '#f8d7da',
+                                    color: '#dc3545',
+                                    border: 'none',
+                                    width: '30px',
+                                    height: '30px',
+                                    fontSize: '16px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginTop: '10px',
+                                    marginLeft: 'auto', // Add this to push the button to the right
+                                    marginRight: '20px',
+                                }}
+                            >
+                                &minus;
+                            </button>
+
+
+                        </div>
+                    ))}
+                    {/* Add Medicine Button */}
+                    <div className="text-end mt-2">
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary rounded-circle"
+                            onClick={addMedicine}
+                            style={{
+                                backgroundColor: '#e0e0e0',
+                                color: '#03c0c1',
+                                border: 'none',
+                                width: '40px',
+                                height: '40px',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            +
+                        </button>
+
+
+                    </div>
+                </div>
+
+
                 {/* Advice to Lab */}
                 <div className="mb-4 p-3" style={{backgroundColor: '#f8f9fa'}}>
-                    <h4>Lab Advice</h4>
+                    <h4>Diagnostic Lab</h4>
                     <div className="mb-3">
                         <textarea
                             id="adviceToLab"

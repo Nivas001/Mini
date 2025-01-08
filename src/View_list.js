@@ -35,7 +35,7 @@ const ViewFuturePatients = () => {
             }
         };
 
-        fetchFuturePatients();
+        fetchFuturePatients().then(r => console.log("Future patients fetched"));
     }, []);
 
     // Function to format the date as 'DD/MM/YYYY'
@@ -49,32 +49,34 @@ const ViewFuturePatients = () => {
     };
 
     return (
-        <div className={'entire_page'}>
-            <h2>Future Patient Appointments</h2>
-            <table className="table">
-                <thead>
+        <div className="entire_page">
+            <h2 style={{ textAlign: "center", margin: "20px 0" }}>Future Patient Appointments</h2>
+            <table className="table" style={{ width: "80%", margin: "0 auto", borderCollapse: "collapse", textAlign: "left" }}>
+                <thead style={{ backgroundColor: "#f5f5f5", height: "4em", borderBottom: "2px solid #ccc" }}>
                 <tr>
-                    <th>Date</th>
-                    <th>Slot</th>
-                    <th>Name</th>
-                    <th>Gender</th>
-                    <th>Problem</th>
+                    <th style={{padding: "10px"}}>Date</th>
+                    <th style={{padding: "10px"}}>Slot</th>
+                    <th style={{padding: "10px"}}>Name</th>
+                    <th style={{padding: "10px"}}>Gender</th>
+                    <th style={{padding: "10px"}}>Problem</th>
+                    <th style={{padding: "10px"}}>Actions</th>
                 </tr>
                 </thead>
                 <tbody>
                 {futurePatients.length > 0 ? (
                     futurePatients.map((patient, index) => (
-                        <tr key={index}>
-                            <td>{patient.date}</td>
-                            <td>{patient.slot_start_time}</td>
-                            <td>{patient.patient_name}</td>
-                            <td>{patient.gender}</td>
-                            <td>{patient.reason_for_visit}</td>
+                        <tr key={index} style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
+                            <td style={{ padding: "10px", textAlign: "left", width: "10%", border: "1px solid #ccc" }}>{patient.date}</td>
+                            <td style={{ padding: "10px", width: "10%", border: "1px solid #ccc" }}>{patient.slot_start_time}</td>
+                            <td style={{ padding: "10px", width: "20%", border: "1px solid #ccc" }}>{patient.patient_name}</td>
+                            <td style={{ padding: "10px", width: "5%", border: "1px solid #ccc" }}>{patient.gender}</td>
+                            <td style={{ padding: "10px", width: "40%", border: "1px solid #ccc" }}>{patient.reason_for_visit}</td>
+                            <td style={{ padding: "10px", width: "15%", border: "1px solid #ccc" }}></td>
                         </tr>
                     ))
                 ) : (
                     <tr>
-                        <td colSpan="5" style={{textAlign: "center"}}>No future appointments found</td>
+                        <td colSpan="5" style={{ textAlign: "center", padding: "20px" }}>No future appointments found</td>
                     </tr>
                 )}
                 </tbody>
